@@ -18,6 +18,7 @@ defmodule VocabularyBuilderWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    live "/kanban", KanbanLive
   end
 
   # Other scopes may use custom stacks.

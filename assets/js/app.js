@@ -25,9 +25,81 @@ import {LiveSocket} from "phoenix_live_view"
 import topbar from "../vendor/topbar"
 
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
-const liveSocket = new LiveSocket("/live", Socket, {
+
+const Kanban = {
+  mounted() {
+    // Kartları dinle
+    this.handleDraggableCards()
+
+    // Drop zone'ları dinle
+    this.el.addEventListener("dragover", e => {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = "move"
+    })
+
+    this.el.addEventListener("drop", e => {
+      e.preventDefault()
+      const dropZone = e.target.closest("[phx-drop-target]")
+      if (!dropZone) return
+
+      try {
+        const data = JSON.parse(e.dataTransfer.getData("text/plain"))
+        if (!data || !data.word || !data.from) return
+
+        const to = dropZone.getAttribute("phx-drop-target")
+        console.log("Dropping word:", data.word, "from:", data.from, "to:", to)
+        
+        if (data.from !== to) {
+          this.pushEvent("phx:move_word", {
+            from: data.from,
+            to: to,
+            word: data.word
+          })
+        }
+      } catch (error) {
+        console.error("Error parsing drag data:", error)
+      }
+    })
+  },
+
+  updated() {
+    // Kartları güncelle
+    this.handleDraggableCards()
+  },
+
+  handleDraggableCards() {
+    const cards = this.el.querySelectorAll("[draggable='true']")
+
+    cards.forEach(card => {
+      // Önceki event listener'ları temizle
+      card.removeEventListener("dragstart", this.handleDragStart)
+      card.removeEventListener("dragend", this.handleDragEnd)
+
+      // Yeni event listener'ları ekle
+      card.addEventListener("dragstart", this.handleDragStart)
+      card.addEventListener("dragend", this.handleDragEnd)
+    })
+  },
+
+  handleDragStart(e) {
+    const card = e.target
+    const data = {
+      word: card.dataset.word,
+      from: card.dataset.list
+    }
+    e.dataTransfer.setData("text/plain", JSON.stringify(data))
+    card.classList.add("opacity-50")
+  },
+
+  handleDragEnd(e) {
+    e.target.classList.remove("opacity-50")
+  }
+}
+
+let liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
-  params: {_csrf_token: csrfToken}
+  params: {_csrf_token: csrfToken},
+  hooks: {Kanban}
 })
 
 // Show progress bar on live navigation and form submits
